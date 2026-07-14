@@ -1,0 +1,8 @@
+.env
+.env.local
+leetcode-cli
+leetcode-cli.exe
+*.test
+worklist.md
+progress.md
+~/.leetcode-cli/
