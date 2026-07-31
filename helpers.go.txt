@@ -1,0 +1,311 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// ---------- ListNode ----------
+
+type ListNode struct {
+	Val  int
+	Next *ListNode
+}
+
+func ListFromSlice(xs []int) *ListNode {
+	if len(xs) == 0 {
+		return nil
+	}
+	head := &ListNode{Val: xs[0]}
+	cur := head
+	for _, v := range xs[1:] {
+		cur.Next = &ListNode{Val: v}
+		cur = cur.Next
+	}
+	return head
+}
+
+func ListToSlice(h *ListNode) []int {
+	var out []int
+	for h != nil {
+		out = append(out, h.Val)
+		h = h.Next
+	}
+	return out
+}
+
+func SerializeList(h *ListNode) string {
+	return fmt.Sprintf("%v", ListToSlice(h))
+}
+
+func DeserializeList(s string) *ListNode {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var xs []int
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return nil
+		}
+		xs = append(xs, n)
+	}
+	return ListFromSlice(xs)
+}
+
+// ---------- TreeNode ----------
+
+type TreeNode struct {
+	Val   int
+	Left  *TreeNode
+	Right *TreeNode
+}
+
+func DeserializeTree(s string) *TreeNode {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	nodes := make([]*TreeNode, len(parts))
+	for i, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "null" || p == "" {
+			nodes[i] = nil
+			continue
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return nil
+		}
+		nodes[i] = &TreeNode{Val: n}
+	}
+	kidsIdx := 1
+	for i := 0; i < len(nodes) && kidsIdx < len(nodes); i++ {
+		if nodes[i] == nil {
+			continue
+		}
+		if kidsIdx < len(nodes) {
+			nodes[i].Left = nodes[kidsIdx]
+			kidsIdx++
+		}
+		if kidsIdx < len(nodes) {
+			nodes[i].Right = nodes[kidsIdx]
+			kidsIdx++
+		}
+	}
+	return nodes[0]
+}
+
+func SerializeTree(root *TreeNode) string {
+	if root == nil {
+		return "[]"
+	}
+	var out []string
+	queue := []*TreeNode{root}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur == nil {
+			out = append(out, "null")
+			continue
+		}
+		out = append(out, strconv.Itoa(cur.Val))
+		queue = append(queue, cur.Left, cur.Right)
+	}
+	for len(out) > 0 && out[len(out)-1] == "null" {
+		out = out[:len(out)-1]
+	}
+	return "[" + strings.Join(out, ",") + "]"
+}
+
+// ---------- I/O ----------
+
+func ReadLine(r *bufio.Reader) string {
+	line, _ := r.ReadString('\n')
+	return strings.TrimRight(line, "\n")
+}
+
+// ParseTyped parses s for the LeetCode type name `typ`.
+// Supported: int, long, double, float, boolean, string,
+//            int[], string[], character[], ListNode, ListNode[], TreeNode
+func ParseTyped(typ string, s string) interface{} {
+	s = strings.TrimSpace(s)
+	switch typ {
+	case "integer", "long":
+		n, _ := strconv.Atoi(s)
+		return n
+	case "double", "float":
+		n, _ := strconv.ParseFloat(s, 64)
+		return n
+	case "boolean":
+		return s == "true"
+	case "string":
+		// LeetCode serialises: "literal string with quotes"
+		s = strings.TrimPrefix(s, "\"")
+		s = strings.TrimSuffix(s, "\"")
+		return s
+	case "integer[]":
+		s = strings.TrimPrefix(s, "[")
+		s = strings.TrimSuffix(s, "]")
+		if s == "" {
+			return []int{}
+		}
+		parts := strings.Split(s, ",")
+		xs := make([]int, 0, len(parts))
+		for _, p := range parts {
+			n, _ := strconv.Atoi(strings.TrimSpace(p))
+			xs = append(xs, n)
+		}
+		return xs
+	case "string[]":
+		s = strings.TrimPrefix(s, "[")
+		s = strings.TrimSuffix(s, "]")
+		if s == "" {
+			return []string{}
+		}
+		parts := splitTopArrays(s)
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			p = strings.TrimPrefix(p, "\"")
+			p = strings.TrimSuffix(p, "\"")
+			out = append(out, p)
+		}
+		return out
+	case "character", "character[]":
+		s = strings.TrimPrefix(s, "\"")
+		s = strings.TrimSuffix(s, "\"")
+		return []byte(s)
+	case "character[][]", "integer[][]":
+		s = strings.TrimPrefix(s, "[")
+		s = strings.TrimSuffix(s, "]")
+		if s == "" {
+			return [][]byte{}
+		}
+		parts := splitTopArrays(s)
+		out := make([][]byte, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			p = strings.TrimPrefix(p, "\"")
+			p = strings.TrimSuffix(p, "\"")
+			out = append(out, []byte(p))
+		}
+		return out
+	case "ListNode":
+		return DeserializeList(s)
+	case "ListNode[]":
+		s = strings.TrimPrefix(s, "[")
+		s = strings.TrimSuffix(s, "]")
+		if s == "" {
+			return []*ListNode{}
+		}
+		parts := splitTopArrays(s)
+		out := make([]*ListNode, 0, len(parts))
+		for _, p := range parts {
+			out = append(out, DeserializeList(p))
+		}
+		return out
+	case "TreeNode":
+		return DeserializeTree(s)
+	}
+	return s
+}
+
+func splitTopArrays(s string) []string {
+	var out []string
+	depth := 0
+	start := 0
+	for i, c := range s {
+		switch c {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				out = append(out, s[start:i+1])
+				start = i + 1
+				if start < len(s) && s[start] == ',' {
+					start++
+				}
+			}
+		}
+	}
+	return out
+}
+
+// SerializeTyped formats `v` as a LeetCode-style string.
+func SerializeTyped(v interface{}) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case int:
+		return strconv.Itoa(x)
+	case int64:
+		return strconv.FormatInt(x, 10)
+	case []int:
+		parts := make([]string, len(x))
+		for i, n := range x {
+			parts[i] = strconv.Itoa(n)
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case [][]int:
+		var rows []string
+		for _, r := range x {
+			parts := make([]string, len(r))
+			for i, n := range r {
+				parts[i] = strconv.Itoa(n)
+			}
+			rows = append(rows, "["+strings.Join(parts, ",")+"]")
+		}
+		return "[" + strings.Join(rows, ",") + "]"
+	case string:
+		return x
+	case []string:
+		parts := make([]string, len(x))
+		for i, s := range x {
+			parts[i] = "\"" + s + "\""
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case []byte:
+		return string(x)
+	case *ListNode:
+		return SerializeList(x)
+	case []*ListNode:
+		parts := make([]string, len(x))
+		for i, h := range x {
+			parts[i] = SerializeList(h)
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case *TreeNode:
+		return SerializeTree(x)
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// ignored: stub main kept for completeness (these helpers don't run on their own)
+func main() {
+	stdin := bufio.NewReader(os.Stdin)
+	_ = stdin
+}
